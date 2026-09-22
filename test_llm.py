@@ -1,11 +1,21 @@
 import os
 from dotenv import load_dotenv
 from google import genai
+from pydantic import BaseModel
 
 load_dotenv()
 
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+class Question(BaseModel):
+    type: str
+    question: str
+    options: list[str]
+    correct_answer: int
+    explanation: str
 
+
+class Quiz(BaseModel):
+    questions: list[Question]
 passage = """
 Trauma Does Not Exist
 
@@ -91,7 +101,19 @@ PASSAGE:
 """
 response = client.models.generate_content(
     model="gemini-3.1-flash-lite",
-    contents=prompt
+    contents=prompt,
+    config={
+        "response_mime_type": "application/json",
+        "response_schema": Quiz,
+    },
 )
 
-print(response.text)
+quiz = Quiz.model_validate_json(response.text)
+
+for question in quiz.questions:
+    print(question.type)
+    print(question.question)
+    print(question.options)
+    print("Correct:", question.correct_answer)
+    print("Explanation:", question.explanation)
+    print()
