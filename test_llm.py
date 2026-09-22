@@ -65,32 +65,26 @@ PHILOSOPHER: Oh? I’m all ears
 """
 
 prompt = f"""
-You are Deep Read, an AI tool that tests whether someone
-actually understood a non-fiction book.
+Analyze ONLY the passage provided below.
 
-Analyze the passage below and generate exactly 5 questions.
+IMPORTANT RULES:
+- Use only information explicitly contained in the passage.
+- Do not use knowledge from the broader book.
+- Do not use outside knowledge.
+- Do not introduce characters, events, arguments, or examples that are not present in the passage.
+- Every question must be answerable using only the passage.
+- If the passage does not contain enough information to create a particular type of question, create a different question that can be answered from the passage.
+- The goal is to test whether the reader understood the author's reasoning, not whether they know the subject.
+
+Generate exactly 5 questions.
 
 The questions must test understanding, not simple memory.
-
-Use these five question types:
 
 1. Core argument
 2. Conceptual distinction
 3. Reasoning
 4. Interpretation
 5. Application
-
-For each question:
-- Give the question.
-- Give four possible answers.
-- Identify the correct answer.
-- Give a short explanation of why it is correct.
-
-Do not ask questions whose answers can simply be copied
-from one sentence of the passage.
-
-The questions should require the reader to understand
-the author's reasoning.
 
 PASSAGE:
 {passage}
