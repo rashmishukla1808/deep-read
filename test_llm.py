@@ -11,8 +11,8 @@ class Question(BaseModel):
     question: str
     options: list[str]
     correct_answer: int
-    explanation: str
-
+    explanation: str 
+    concept: str
 
 class Quiz(BaseModel):
     questions: list[Question]
@@ -124,8 +124,40 @@ for i, question in enumerate(quiz.questions, start=1):
 
 score = 0
 
+print("\n--- Your Results ---")
+
 for i, question in enumerate(quiz.questions):
-    if user_answers[i] == question.correct_answer:
+    user_answer = user_answers[i]
+
+    if user_answer == question.correct_answer:
         score += 1
+        print(f"\nQuestion {i + 1}: ✓ Correct")
+    else:
+        print(f"\nQuestion {i + 1}: ✗ Incorrect")
+        print(f"Your answer: {question.options[user_answer]}")
+        print(f"Correct answer: {question.options[question.correct_answer]}")
+
+    print(f"Concept: {question.concept}")
+print(f"Why: {question.explanation}")
 
 print(f"\nYour score: {score}/{len(quiz.questions)}")
+print("\n--- Understanding Report ---")
+
+understood = []
+needs_review = []
+
+for i, question in enumerate(quiz.questions):
+    if user_answers[i] == question.correct_answer:
+        understood.append(question.concept)
+    else:
+        needs_review.append(question.concept)
+
+if understood:
+    print("\nYou understood:")
+    for concept in understood:
+        print(f"✓ {concept}")
+
+if needs_review:
+    print("\nNeeds deeper reflection:")
+    for concept in needs_review:
+        print(f"⚠ {concept}")
