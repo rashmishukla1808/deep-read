@@ -110,10 +110,22 @@ response = client.models.generate_content(
 
 quiz = Quiz.model_validate_json(response.text)
 
-for question in quiz.questions:
-    print(question.type)
-    print(question.question)
-    print(question.options)
-    print("Correct:", question.correct_answer)
-    print("Explanation:", question.explanation)
-    print()
+user_answers = []
+
+for i, question in enumerate(quiz.questions, start=1):
+    print(f"\nQuestion {i}: {question.question}")
+
+    for j, option in enumerate(question.options):
+        print(f"{j}. {option}")
+
+    answer = int(input("Your answer (0-3): "))
+    user_answers.append(answer)
+
+
+score = 0
+
+for i, question in enumerate(quiz.questions):
+    if user_answers[i] == question.correct_answer:
+        score += 1
+
+print(f"\nYour score: {score}/{len(quiz.questions)}")
