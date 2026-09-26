@@ -1,0 +1,33 @@
+[
+  {
+    "id": "grounded_01",
+    "passage": "Past experiences do not determine a person's future. What matters is the meaning the person gives to those experiences.",
+    "question": "According to the passage, what matters in determining how a person responds to past experiences?",
+    "expected_grounded": true
+  },
+  {
+    "id": "grounded_02",
+    "passage": "Past experiences do not determine a person's future. What matters is the meaning the person gives to those experiences.",
+    "question": "What psychological theory does the author use to explain this idea?",
+    "expected_grounded": false
+  },
+  {
+    "id": "grounded_03",
+    "passage": "A person may interpret the same experience differently from another person.",
+    "question": "What does the passage suggest about how two people can interpret the same experience?",
+    "expected_grounded": true
+  },
+  {
+    "id": "grounded_04",
+    "passage": "A person may interpret the same experience differently from another person.",
+    "question": "Which famous psychologist first proposed this idea?",
+    "expected_grounded": false
+  }
+,
+{
+  "id": "grounded_05",
+  "passage": "Past experiences do not determine a person's future. What matters is the meaning the person gives to those experiences.",
+  "question": "What does the passage suggest about whether people are shaped by their past?",
+  "expected_grounded": true
+}
+]
