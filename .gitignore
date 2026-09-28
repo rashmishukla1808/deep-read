@@ -2,3 +2,13 @@
 .env
 __pycache__/
 *.pyc
+# Local books and generated data
+*.pdf
+chunks.json
+vector_store.json
+
+# Local vector databases
+chroma_db/
+chroma_gemini_db/
+chroma_rag_db/
+book_chroma_db/
