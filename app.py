@@ -1,60 +1,143 @@
+import os
+
 import streamlit as st
+import chromadb
 
-from quiz_engine import generate_quiz
+from dotenv import load_dotenv
+from google import genai
 
+from pdf_parser import extract_text_from_pdf
+from book_chunker import chunk_text
+
+
+# Load environment variables
+load_dotenv()
+
+client = genai.Client(
+    api_key=os.getenv("GEMINI_API_KEY")
+)
+
+
+# Chroma database
+chroma_client = chromadb.PersistentClient(
+    path="./chroma_db"
+)
+
+collection = chroma_client.get_or_create_collection(
+    name="deep_read"
+)
+
+
+def get_embedding(text):
+
+    response = client.models.embed_content(
+        model="gemini-embedding-001",
+        contents=text
+    )
+
+    return response.embeddings[0].values
+
+
+# -------------------------
+# UI
+# -------------------------
 
 st.title("Deep Read 📖")
 
-st.write("Test whether you actually understood what you read.")
-
-passage = st.text_area(
-    "Paste a passage below 👇",
-    height=250
+st.write(
+    "Upload a book and test whether you actually understood what you read."
 )
 
-if st.button("Generate Quiz"):
-    if passage.strip():
-        quiz = generate_quiz(passage)
 
-        st.session_state.quiz = quiz
-
-    else:
-        st.warning("Please paste a passage first.")
+uploaded_file = st.file_uploader(
+    "Upload your book",
+    type=["pdf"]
+)
 
 
-if "quiz" in st.session_state:
+if uploaded_file is not None:
 
-    quiz = st.session_state.quiz
+    st.success(f"Uploaded: {uploaded_file.name}")
 
-    st.divider()
-    st.header("Your Quiz")
 
-    answers = []
+    if st.button("Process Book"):
 
-    for i, question in enumerate(quiz.questions):
+        # 1. Extract text
 
-        st.subheader(f"Question {i + 1}")
+        with st.spinner("Extracting text from your book..."):
 
-        st.write(question.question)
+            text = extract_text_from_pdf(uploaded_file)
 
-        answer = st.radio(
-            "Choose an answer:",
-            question.options,
-            key=f"question_{i}"
+
+        if not text.strip():
+
+            st.error(
+                "No text could be extracted from this PDF. "
+                "It may be a scanned/image-based PDF."
+            )
+
+            st.stop()
+
+
+        st.success(
+            f"Extracted approximately {len(text.split()):,} words."
         )
 
-        answers.append(question.options.index(answer))
 
-    if st.button("Submit Quiz"):
+        # 2. Chunk the book
 
-        score = 0
+        with st.spinner("Splitting book into chunks..."):
 
-        for i, question in enumerate(quiz.questions):
+            chunks = chunk_text(text)
 
-            if answers[i] == question.correct_answer:
-                score += 1
 
-        st.divider()
-        st.header("Your Results")
+        st.success(
+            f"Created {len(chunks):,} chunks."
+        )
 
-        st.write(f"Your score: **{score}/{len(quiz.questions)}**")
+
+        # 3. Generate embeddings and store in Chroma
+
+        with st.spinner(
+            "Creating embeddings and indexing your book..."
+        ):
+
+            for i, chunk in enumerate(chunks):
+
+                embedding = get_embedding(chunk)
+
+                collection.add(
+                    ids=[f"{uploaded_file.name}_{i}"],
+                    documents=[chunk],
+                    embeddings=[embedding],
+                    metadatas=[
+                        {
+                            "book": uploaded_file.name,
+                            "chunk_id": i
+                        }
+                    ]
+                )
+
+
+        st.success(
+            f"Book indexed successfully! "
+            f"{len(chunks):,} chunks stored."
+        )
+
+
+        # 4. Preview extracted text
+
+        with st.expander("Preview extracted text"):
+
+            st.text(text[:5000])
+
+
+        # 5. Preview chunks
+
+        with st.expander("Preview chunks"):
+
+            for i, chunk in enumerate(chunks[:3]):
+
+                st.write(f"### Chunk {i + 1}")
+
+                st.write(chunk)
