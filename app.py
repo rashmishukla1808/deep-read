@@ -1,46 +1,34 @@
-import os
-
 import streamlit as st
 import chromadb
-
-from dotenv import load_dotenv
-from google import genai
+from sentence_transformers import SentenceTransformer
 
 from pdf_parser import extract_text_from_pdf
 from book_chunker import chunk_text
+from rag_generator import answer_question
 
 
-# Load environment variables
-load_dotenv()
+# -----------------------------
+# Models and database
+# -----------------------------
 
-client = genai.Client(
-    api_key=os.getenv("GEMINI_API_KEY")
+embedding_model = SentenceTransformer(
+    "BAAI/bge-small-en-v1.5"
 )
 
-
-# Chroma database
 chroma_client = chromadb.PersistentClient(
     path="./chroma_db"
 )
 
-collection = chroma_client.get_or_create_collection(
-    name="deep_read"
-)
 
-
-def get_embedding(text):
-
-    response = client.models.embed_content(
-        model="gemini-embedding-001",
-        contents=text
+def get_collection():
+    return chroma_client.get_or_create_collection(
+        name="deep_read"
     )
 
-    return response.embeddings[0].values
 
-
-# -------------------------
-# UI
-# -------------------------
+# -----------------------------
+# Page
+# -----------------------------
 
 st.title("Deep Read 📖")
 
@@ -48,6 +36,10 @@ st.write(
     "Upload a book and test whether you actually understood what you read."
 )
 
+
+# -----------------------------
+# Upload book
+# -----------------------------
 
 uploaded_file = st.file_uploader(
     "Upload your book",
@@ -57,17 +49,23 @@ uploaded_file = st.file_uploader(
 
 if uploaded_file is not None:
 
-    st.success(f"Uploaded: {uploaded_file.name}")
+    st.success(
+        f"Uploaded: {uploaded_file.name}"
+    )
 
+    # -----------------------------
+    # Process book
+    # -----------------------------
 
     if st.button("Process Book"):
 
-        # 1. Extract text
+        with st.spinner(
+            "Extracting text from your book..."
+        ):
 
-        with st.spinner("Extracting text from your book..."):
-
-            text = extract_text_from_pdf(uploaded_file)
-
+            text = extract_text_from_pdf(
+                uploaded_file
+            )
 
         if not text.strip():
 
@@ -78,45 +76,89 @@ if uploaded_file is not None:
 
             st.stop()
 
-
         st.success(
-            f"Extracted approximately {len(text.split()):,} words."
+            f"Extracted approximately "
+            f"{len(text.split()):,} words."
         )
 
 
-        # 2. Chunk the book
+        # -----------------------------
+        # Chunk book
+        # -----------------------------
 
-        with st.spinner("Splitting book into chunks..."):
+        with st.spinner(
+            "Splitting book into chunks..."
+        ):
 
             chunks = chunk_text(text)
-
 
         st.success(
             f"Created {len(chunks):,} chunks."
         )
 
 
-        # 3. Generate embeddings and store in Chroma
+        # -----------------------------
+        # Create embeddings
+        # -----------------------------
 
         with st.spinner(
-            "Creating embeddings and indexing your book..."
+            "Creating local embeddings..."
         ):
 
-            for i, chunk in enumerate(chunks):
+            embeddings = embedding_model.encode(
+                chunks,
+                normalize_embeddings=True,
+                show_progress_bar=False
+            )
 
-                embedding = get_embedding(chunk)
 
-                collection.add(
-                    ids=[f"{uploaded_file.name}_{i}"],
-                    documents=[chunk],
-                    embeddings=[embedding],
-                    metadatas=[
-                        {
-                            "book": uploaded_file.name,
-                            "chunk_id": i
-                        }
-                    ]
-                )
+        # -----------------------------
+        # Create fresh Chroma index
+        # -----------------------------
+
+        try:
+
+            chroma_client.delete_collection(
+                name="deep_read"
+            )
+
+        except Exception:
+
+            pass
+
+
+        collection = chroma_client.create_collection(
+            name="deep_read"
+        )
+
+
+        # -----------------------------
+        # Store chunks
+        # -----------------------------
+
+        with st.spinner(
+            "Indexing your book..."
+        ):
+
+            ids = [
+                f"{uploaded_file.name}_{i}"
+                for i in range(len(chunks))
+            ]
+
+            metadatas = [
+                {
+                    "book": uploaded_file.name,
+                    "chunk_id": i
+                }
+                for i in range(len(chunks))
+            ]
+
+            collection.add(
+                ids=ids,
+                documents=chunks,
+                embeddings=embeddings.tolist(),
+                metadatas=metadatas
+            )
 
 
         st.success(
@@ -125,19 +167,67 @@ if uploaded_file is not None:
         )
 
 
-        # 4. Preview extracted text
+        # -----------------------------
+        # Preview extracted text
+        # -----------------------------
 
-        with st.expander("Preview extracted text"):
+        with st.expander(
+            "Preview extracted text"
+        ):
 
-            st.text(text[:5000])
+            st.text(
+                text[:5000]
+            )
 
 
-        # 5. Preview chunks
+        # -----------------------------
+        # Preview chunks
+        # -----------------------------
 
-        with st.expander("Preview chunks"):
+        with st.expander(
+            "Preview chunks"
+        ):
 
-            for i, chunk in enumerate(chunks[:3]):
+            for i, chunk in enumerate(
+                chunks[:3]
+            ):
 
-                st.write(f"### Chunk {i + 1}")
+                st.write(
+                    f"### Chunk {i + 1}"
+                )
 
                 st.write(chunk)
+
+
+# -----------------------------
+# Ask questions
+# -----------------------------
+
+st.divider()
+
+st.subheader(
+    "Ask a question about the book"
+)
+
+question = st.text_input(
+    "What would you like to understand?"
+)
+
+
+if st.button("Ask") and question:
+
+    with st.spinner(
+        "Thinking..."
+    ):
+
+        answer = answer_question(
+            question
+        )
+
+    st.subheader(
+        "Answer"
+    )
+
+    st.write(
+        answer
+    )
